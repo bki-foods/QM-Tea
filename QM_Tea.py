@@ -57,7 +57,7 @@ def qm_score(x, para, dic):
 
 # Get todays date and define lists of unique values for loops:
 now = datetime.datetime.now()
-scriptName = 'QM_Cofee.py'
+scriptName = 'TEST_QM_Tea.py'
 executionId = int(now.timestamp())
 coffeeTypes = df.CType.unique()
 departments = df.Department.unique()
@@ -123,7 +123,7 @@ dfQuan = dfQuan[ColsQuan]
 # =============================================================================
 #                               Dataframe for logging
 # =============================================================================
-dfLog = pd.DataFrame(data= {'Date':now, 'Event': 'test_' + scriptName}, index=[0])
+dfLog = pd.DataFrame(data= {'Date':now, 'Event':scriptName}, index=[0])
 # =============================================================================
 #                               Insert SQL
 # =============================================================================
