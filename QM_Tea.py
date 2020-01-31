@@ -11,17 +11,14 @@ import pyodbc
 server = r'sqlsrv04\tx'
 db = 'TXprodDWH'
 con = pyodbc.connect('DRIVER={SQL Server};SERVER=' + server + ';DATABASE=' + db)
-query = """SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
-        ,V.[Vareansvar] AS [Department], SVP.[KG], SVP.[Amount]
+query = """ SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
+        ,V.[Nettovægt kg] * ISNULL(SVP.[Qty],0) AS [Quantity], SVP.[Amount]
         ,SVP.[Cost], V.[Dage siden oprettelse] AS [Days]
 		, CASE WHEN V.[Udmeldelsesstatus] = 'Er udgået'
 			THEN 0 ELSE ISNULL(SVP.[Count],0) END AS [Count]
-        ,CASE WHEN V.[Produktionskode] NOT LIKE '%HB%' THEN 'FORM' 
-            ELSE 'HB' END AS [CType]
-        ,V.[Udmeldelsesstatus]
         FROM [TXprodDWH].[dbo].[Vare_V] AS V
         LEFT JOIN (
-        SELECT [Varenr], SUM(ISNULL([AntalKgKaffe],0)) AS [KG]
+        SELECT [Varenr], -1 * SUM(ISNULL([Faktureret antal],0)) AS [Qty]
         ,SUM([Oms excl. kampagneAnnonce]) AS [Amount]
         ,SUM([Kostbeløb]) AS [Cost], COUNT(*) AS [Count]
         FROM [TXprodDWH].[dbo].[factSTATISTIK VAREPOST_V]
@@ -30,17 +27,16 @@ query = """SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
         GROUP BY [Varenr]
         ) AS SVP
         ON V.[Varenr] = SVP.[Varenr]
-        WHERE V.[Varekategorikode] = 'FÆR KAFFE'
+        WHERE V.[Varekategorikode] = 'TE'
             AND V.[Varenr] NOT LIKE '9%'
-            AND V.[Rabatnr] = 'Nej'
-            AND V.[Salgsvare] = 'Ja' """
+            AND V.[Salgsvare] = 'Ja'
+			AND V.[Produktionskode] IN ('PAK PL TE', 'PAKKET TE') """
 
 # Read query and create Profit calculation:
 df = pd.read_sql(query, con)
-df['Profit'] = df['Amount'] - df['Cost']
+df['MonetaryValue'] = df['Amount'] - df['Cost']
 
-# Empty dataframes for consolidating segmentation and quantiles:
-dfCons = pd.DataFrame()
+# Empty dataframe for quantiles:
 dfQuan = pd.DataFrame()
 
 # Quantity and MonetaryValue score - bigger numbers are better:
@@ -55,46 +51,36 @@ def qm_score(x, para, dic):
         return 1
 
 
-# Get todays date and define lists of unique values for loops:
+# Create timestamp and other variables
 now = datetime.datetime.now()
 scriptName = 'TEST_QM_Tea.py'
 executionId = int(now.timestamp())
-coffeeTypes = df.CType.unique()
-departments = df.Department.unique()
+tType = 'Te/egenproduceret'
 
 # =============================================================================
 #                        SKUs with sales
 # =============================================================================
 dfSales = df.loc[df['Count'] != 0]
 
-for dep in departments:
-    for cType in coffeeTypes:
-# Create Coffee dataframe, calculations and rename columns:
-        dfCof = dfSales.loc[dfSales['Department'] == dep]
-        dfCof = dfCof.loc[dfCof['CType'] == cType]
-        dfCof.rename(columns={'KG': 'Quantity', 'Profit': 'MonetaryValue'}, inplace=True)
-# If dataframe is empty, skip department & type
-        if len(dfCof) != 0:
-# Define quantiles for dfPro dataframe:
-            quantiles = dfCof.quantile(q=[0.25, 0.5, 0.75]).to_dict()
+# If dataframe is empty, skip
+if len(dfSales) != 0:
+# Define quantiles for:
+    quantiles = dfSales.quantile(q=[0.25, 0.5, 0.75]).to_dict()
 # Identify quartiles per measure for each product:
-            dfCof.loc[:, 'QuantityQuartile'] = dfCof['Quantity'].apply(qm_score, args=('Quantity', quantiles,))
-            dfCof.loc[:, 'MonetaryQuartile'] = dfCof['MonetaryValue'].apply(qm_score, args=('MonetaryValue', quantiles,))
+    dfSales.loc[:, 'QuantityQuartile'] = dfSales['Quantity'].apply(qm_score, args=('Quantity', quantiles,))
+    dfSales.loc[:, 'MonetaryQuartile'] = dfSales['MonetaryValue'].apply(qm_score, args=('MonetaryValue', quantiles,))
 # Concetenate Quartile measurements to single string:
-            dfCof.loc[:, 'Score'] = dfCof.QuantityQuartile * 10 + dfCof.MonetaryQuartile
+    dfSales.loc[:, 'Score'] = dfSales.QuantityQuartile * 10 + dfSales.MonetaryQuartile
 # Create data stamps for dataframe and append to consolidated dataframe:
-            dfCof.loc[:, 'Timestamp'] = now
-            dfCof.loc[:, 'Type'] = dep + '/' + cType
-            dfCof.loc[:, 'ExecutionId'] = executionId
-            dfCof.loc[:, 'Script'] = scriptName
-            dfCons = pd.concat([dfCons, dfCof])
-# Append quantiles to dataframe
-            dfTemp = pd.DataFrame.from_dict(quantiles)
-            dfTemp.loc[:, 'Type'] = dep + '/' + cType
-            dfTemp.loc[:, 'Quantile'] = dfTemp.index
-            dfQuan = pd.concat([dfTemp, dfQuan], sort=False)
-            dfQuan.loc[:, 'Timestamp'] = now
-            dfQuan.loc[:, 'ExecutionId'] = executionId
+    dfSales.loc[:, 'Timestamp'] = now
+    dfSales.loc[:, 'Type'] = tType
+    dfSales.loc[:, 'ExecutionId'] = executionId
+    dfSales.loc[:, 'Script'] = scriptName
+# Create quantile dataframe
+    dfQuan = pd.DataFrame.from_dict(quantiles)
+    dfQuan.loc[:, 'Type'] = tType
+    dfQuan.loc[:, 'Timestamp'] = now
+    dfQuan.loc[:, 'ExecutionId'] = executionId
 
 # =============================================================================
 #                        SKUs without sales
@@ -103,21 +89,21 @@ dfNoSales = df.loc[df['Count'] == 0]
 
 dfNoSales.loc[:, 'Timestamp'] = now
 dfNoSales.loc[:, 'Score'] = dfNoSales['Days'].apply(lambda x: 1 if x > 90 else 2)
-dfNoSales.loc[dfNoSales['Udmeldelsesstatus'] == 'Er udgået', 'Score'] = 0
-dfNoSales.loc[:, 'Type'] = dfNoSales['Department'] + '/' + dfNoSales['CType']
+dfNoSales.loc[dfNoSales['Status'] == 'Er udgået', 'Score'] = 0
+dfNoSales.loc[:, 'Type'] = tType
 dfNoSales.loc[:, 'ExecutionId'] = executionId
 dfNoSales.loc[:, 'Script'] = scriptName
 
 # =============================================================================
 #                       Prepare dataframes for SQL insert
 # =============================================================================
-ColsCof = ['ExecutionId', 'Timestamp', 'ItemNo', 'Quantity', 'MonetaryValue', 'Score', 'Type', 'Script']
-ColsNoS = ['ExecutionId', 'Timestamp', 'ItemNo', 'Score', 'Type', 'Script']
+ColsSales = ['ExecutionId', 'Timestamp', 'ItemNo', 'Quantity', 'MonetaryValue', 'Score', 'Type', 'Script']
+ColsNoSales = ['ExecutionId', 'Timestamp', 'ItemNo', 'Score', 'Type', 'Script']
 ColsQuan = (['ExecutionId', 'Timestamp', 'Type', 'Quantile', 'Quantity',
              'MonetaryValue'])
 
-dfCons = dfCons[ColsCof]
-dfNoSales = dfNoSales[ColsNoS]
+dfSales = dfSales[ColsSales]
+dfNoSales = dfNoSales[ColsNoSales]
 dfQuan = dfQuan[ColsQuan]
 
 # =============================================================================
@@ -129,7 +115,7 @@ dfLog = pd.DataFrame(data= {'Date':now, 'Event':scriptName}, index=[0])
 # =============================================================================
 params = urllib.parse.quote_plus('DRIVER={SQL Server Native Client 10.0};SERVER=sqlsrv04;DATABASE=BKI_Datastore;Trusted_Connection=yes')
 engine = create_engine('mssql+pyodbc:///?odbc_connect=%s' % params)
-dfCons.to_sql('ItemSegmentation', con=engine, schema='test', if_exists='append', index=False)
+dfSales.to_sql('ItemSegmentation', con=engine, schema='test', if_exists='append', index=False)
 dfNoSales.to_sql('ItemSegmentation', con=engine, schema='test', if_exists='append', index=False)
 dfQuan.to_sql('ItemSegmentationQuantiles', con=engine, schema='test', if_exists='append', index=False)
 dfLog.to_sql('Log', con=engine, schema='dbo', if_exists='append', index=False)
