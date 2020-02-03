@@ -12,7 +12,7 @@ server = r'sqlsrv04\tx'
 db = 'TXprodDWH'
 con = pyodbc.connect('DRIVER={SQL Server};SERVER=' + server + ';DATABASE=' + db)
 query = """ SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
-        ,V.[Nettovægt kg] * ISNULL(SVP.[Qty],0) AS [Quantity], SVP.[Amount]
+        ,V.[Nettovægt] * ISNULL(SVP.[Qty],0) AS [Quantity], SVP.[Amount]
         ,SVP.[Cost], V.[Dage siden oprettelse] AS [Days]
 		, CASE WHEN V.[Udmeldelsesstatus] = 'Er udgået'
 			THEN 0 ELSE ISNULL(SVP.[Count],0) END AS [Count]
@@ -116,8 +116,8 @@ dfLog = pd.DataFrame(data= {'Date':now, 'Event':scriptName}, index=[0])
 # =============================================================================
 params = urllib.parse.quote_plus('DRIVER={SQL Server Native Client 10.0};SERVER=sqlsrv04;DATABASE=BKI_Datastore;Trusted_Connection=yes')
 engine = create_engine('mssql+pyodbc:///?odbc_connect=%s' % params)
-dfSales.to_sql('ItemSegmentation', con=engine, schema='test', if_exists='append', index=False)
-dfNoSales.to_sql('ItemSegmentation', con=engine, schema='test', if_exists='append', index=False)
-dfQuan.to_sql('ItemSegmentationQuantiles', con=engine, schema='test', if_exists='append', index=False)
+dfSales.to_sql('ItemSegmentation', con=engine, schema='dev', if_exists='append', index=False)
+dfNoSales.to_sql('ItemSegmentation', con=engine, schema='dev', if_exists='append', index=False)
+dfQuan.to_sql('ItemSegmentationQuantiles', con=engine, schema='dev', if_exists='append', index=False)
 dfLog.to_sql('Log', con=engine, schema='dbo', if_exists='append', index=False)
 
