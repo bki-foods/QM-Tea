@@ -55,7 +55,7 @@ def qm_score(x, para, dic):
 now = datetime.datetime.now()
 scriptName = 'TEST_QM_Tea.py'
 executionId = int(now.timestamp())
-tType = 'Te/egenproduceret'
+tType = 'Te/Egenproduceret'
 
 # =============================================================================
 #                        SKUs with sales
@@ -81,6 +81,7 @@ if len(dfSales) != 0:
     dfQuan.loc[:, 'Type'] = tType
     dfQuan.loc[:, 'Timestamp'] = now
     dfQuan.loc[:, 'ExecutionId'] = executionId
+    dfQuan.loc[:, 'Quantile'] = dfQuan.index
 
 # =============================================================================
 #                        SKUs without sales
