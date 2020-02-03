@@ -120,4 +120,3 @@ dfSales.to_sql('ItemSegmentation', con=engine, schema='seg', if_exists='append',
 dfNoSales.to_sql('ItemSegmentation', con=engine, schema='seg', if_exists='append', index=False)
 dfQuan.to_sql('ItemSegmentationQuantiles', con=engine, schema='seg', if_exists='append', index=False)
 dfLog.to_sql('Log', con=engine, schema='dbo', if_exists='append', index=False)
-
