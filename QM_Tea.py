@@ -53,7 +53,7 @@ def qm_score(x, para, dic):
 
 # Create timestamp and other variables
 now = datetime.datetime.now()
-scriptName = 'TEST_QM_Tea.py'
+scriptName = 'QM_Tea.py'
 executionId = int(now.timestamp())
 tType = 'Te/Egenproduceret'
 
