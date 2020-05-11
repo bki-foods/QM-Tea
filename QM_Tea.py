@@ -59,7 +59,7 @@ def qm_score(x, para, dic):
 now = datetime.datetime.now()
 scriptName = 'TEST_QM_Tea.py'
 executionId = int(now.timestamp())
-tType = 'Te, egenproduceret'
+tType = 'TE, EGENPRODUKTION'
 departments = df.Department.unique()
 
 # =============================================================================
@@ -118,7 +118,7 @@ dfQuan = dfQuan[ColsQuan]
 # =============================================================================
 #                               Dataframe for logging
 # =============================================================================
-dfLog = pd.DataFrame(data= {'Date':now, 'Event':scriptName}, index=[0])
+dfLog = pd.DataFrame(data= {'Date':now, 'Event':scriptName, 'Note':'Execution id: ' + str(executionId)}, index=[0])
 # =============================================================================
 #                               Insert SQL
 # =============================================================================
