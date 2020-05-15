@@ -84,12 +84,13 @@ for dep in departments:
         dfSalesTea.loc[:, 'ExecutionId'] = executionId
         dfSalesTea.loc[:, 'Script'] = scriptName
         dfCons = pd.concat([dfCons, dfSalesTea])
-# Create quantile dataframe
-        dfQuan = pd.DataFrame.from_dict(quantiles)
-        dfQuan.loc[:, 'Type'] = tType
+# Append quantiles to dataframe
+        dfTemp = pd.DataFrame.from_dict(quantiles)
+        dfTemp.loc[:, 'Type'] = dep + '/' + tType
+        dfTemp.loc[:, 'Quantile'] = dfTemp.index
+        dfQuan = pd.concat([dfTemp, dfQuan], sort=False)
         dfQuan.loc[:, 'Timestamp'] = now
         dfQuan.loc[:, 'ExecutionId'] = executionId
-        dfQuan.loc[:, 'Quantile'] = dfQuan.index
 
 # =============================================================================
 #                        SKUs without sales
