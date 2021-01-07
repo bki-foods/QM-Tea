@@ -33,7 +33,8 @@ query = """ SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
             AND V.[Salgsvare] = 'Ja'
 			AND (V.[Produktionskode] IN ('PAK PL TE', 'PAKKET TE') 
 				OR V.[Underproduktgruppekode] IN ('815','820','910','912'))
-			AND V.[Underproduktgruppekode] NOT IN ('940','942') """
+			AND V.[Underproduktgruppekode] NOT IN ('940','942')
+			AND V.[DW_Account] = 'BKI foods a/s' """
 
 # Read query and create Profit calculation:
 df = pd.read_sql(query, con)
