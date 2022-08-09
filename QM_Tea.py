@@ -4,13 +4,19 @@ import datetime
 import urllib
 import pandas as pd
 from sqlalchemy import create_engine
-import pyodbc
 
 
 # Define server connection and SQL query:
-server = r'sqlsrv04\tx'
-db = 'TXprodDWH'
-con = pyodbc.connect('DRIVER={SQL Server};SERVER=' + server + ';DATABASE=' + db)
+server_tx = r"sqlsrv04\tx"
+db_tx_prod_dwh = "TXprodDWH"
+params_tx_prod_dwh = f"DRIVER={{SQL Server Native Client 11.0}};SERVER={server_tx};DATABASE={db_tx_prod_dwh};trusted_connection=yes"
+con_tx_prod_dwh = create_engine('mssql+pyodbc:///?odbc_connect=%s' % urllib.parse.quote_plus(params_tx_prod_dwh))
+
+server_04 = "sqlsrv04"
+db_ds = "BKI_Datastore"
+params_ds = f"DRIVER={{SQL Server Native Client 11.0}};SERVER={server_04};DATABASE={db_ds};trusted_connection=yes"
+con_ds = create_engine('mssql+pyodbc:///?odbc_connect=%s' % urllib.parse.quote_plus(params_ds))
+
 query = """ SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
         ,V.[Nettovægt] * ISNULL(SVP.[Qty],0) AS [Quantity], SVP.[Amount]
         ,SVP.[Cost], V.[Dage siden oprettelse] AS [Days]
@@ -37,7 +43,7 @@ query = """ SELECT V.[Varenr] AS [ItemNo], V.[Udmeldelsesstatus] AS [Status]
 			AND V.[DW_Account] = 'BKI foods a/s' """
 
 # Read query and create Profit calculation:
-df = pd.read_sql(query, con)
+df = pd.read_sql(query, con_tx_prod_dwh)
 df['MonetaryValue'] = df['Amount'] - df['Cost']
 
 # Empty dataframe for quantiles and consolidation:
@@ -124,9 +130,7 @@ dfLog = pd.DataFrame(data= {'Date':now, 'Event':scriptName, 'Note':'Execution id
 # =============================================================================
 #                               Insert SQL
 # =============================================================================
-params = urllib.parse.quote_plus('DRIVER={SQL Server Native Client 11.0};SERVER=sqlsrv04;DATABASE=BKI_Datastore;Trusted_Connection=yes')
-engine = create_engine('mssql+pyodbc:///?odbc_connect=%s' % params)
-dfCons.to_sql('ItemSegmentation', con=engine, schema='seg', if_exists='append', index=False)
-dfNoSales.to_sql('ItemSegmentation', con=engine, schema='seg', if_exists='append', index=False)
-dfQuan.to_sql('ItemSegmentationQuantiles', con=engine, schema='seg', if_exists='append', index=False)
-dfLog.to_sql('Log', con=engine, schema='dbo', if_exists='append', index=False)
+dfCons.to_sql('ItemSegmentation', con=con_ds, schema='seg', if_exists='append', index=False)
+dfNoSales.to_sql('ItemSegmentation', con=con_ds, schema='seg', if_exists='append', index=False)
+dfQuan.to_sql('ItemSegmentationQuantiles', con=con_ds, schema='seg', if_exists='append', index=False)
+dfLog.to_sql('Log', con=con_ds, schema='dbo', if_exists='append', index=False)
